@@ -19,6 +19,7 @@ EXCHANGE_TIMES = {"LSE": {"open": 8, "close": 17}, "NASDAQ": {"open": 14, "close
 with open("currency_cache.json", "r") as f:
     CURRENCY_DATA = json.load(f)
 
+
 @dataclass
 class Stock:
     name: str
@@ -72,8 +73,8 @@ def get_values(
     start: dt.datetime, end: dt.datetime, ticker: str, exchange="LSE"
 ) -> pd.DataFrame:
     times = EXCHANGE_TIMES[exchange]
-    raw = web.DataReader(ticker, "yahoo", start, end)[["Open", "Close"]]
-    rep = pd.concat([raw["Open"], raw["Close"]]).to_frame()
+    raw = si.get_data(ticker, start.strftime("%m/%d/%y"), (end+dt.timedelta(days=1)).strftime("%m/%d/%y"))[["open", "close"]]
+    rep = pd.concat([raw["open"], raw["close"]]).to_frame().fillna(method="ffill")
     rep.columns = ["value"]
     rep.index = pd.concat(
         [
@@ -88,11 +89,14 @@ def get_values(
 def merge_portfolio(portfolio: List[Stock]) -> pd.DataFrame:
     daily_average_dfs = []
     for stock in portfolio:
-        df = stock.data
+        df = stock.data.copy()
         df = df.groupby([df["time"].dt.date]).mean() * stock.holding
+        df["book_cost"] = stock.book_cost*100.0
         daily_average_dfs.append(df)
 
-    return reduce(lambda a, b: a.add(b, fill_value=0), daily_average_dfs)
+    rep = reduce(lambda a, b: a.add(b, fill_value=0), daily_average_dfs)
+    rep["percent_change"] = (rep["value"]-rep["book_cost"])*100/rep["book_cost"]
+    return rep
 
 
 def convert_currency(
@@ -128,7 +132,7 @@ def parse_date(date_string) -> dt.datetime:
 
 PORTFOLIO = load_portfolio()
 TOTAL_VALUE = merge_portfolio(PORTFOLIO)
-
+print(TOTAL_VALUE)
 dropdown_options = [{"label": stock.name, "value": stock.ticker} for stock in PORTFOLIO]
 dropdown_options.insert(0, {"label": "Portfolio Value", "value": "TOTAL"})
 app = dash.Dash(__name__)
@@ -151,8 +155,8 @@ app.layout = html.Div(
 def update_graph(ticker):
     data = TOTAL_VALUE
     if ticker == "TOTAL":
-        data = TOTAL_VALUE
-        data["value"] = data["value"] / 100
+        fig = px.line(data, x=data.index, y="percent_change")
+        return fig
     else:
         for stock in PORTFOLIO:
             if stock.ticker == ticker:

@@ -62,25 +62,43 @@ def load_portfolio(file="portfolio.json") -> List[Stock]:
     with open(file, "r") as f:
         stock_list = json.load(f)
     rep = []
-    # convert stocks into pandas dataframes
+    # create stock objects
 
     for stock in stock_list:
         new_stock = Stock(**stock)
         rep.append(new_stock)
+
+    # once all stocks have been created and __post_init__() has run, save to cache
+
+    #last row in each df is dropped as this is a real-time value and may not be applicable in future
+    to_cache = pd.concat(
+        [stock.data.drop("time", axis=1).drop(stock.data.index[-1]) for stock in rep],
+        axis=1,
+        ignore_index=True,
+    )
+    to_cache.columns = [stock.name for stock in rep]
+    print(to_cache)
+    to_cache.to_csv("stock_cache.csv", index_label="time")
     return rep
 
 
 def get_values(
     start: dt.datetime, end: dt.datetime, ticker: str, exchange="LSE"
 ) -> pd.DataFrame:
-    times = EXCHANGE_TIMES[exchange]
+    times = EXCHANGE_TIMES[exchange]  # open times of various exchanges
+
+    # collect the raw data from Yahoo Finance, take only the open and close columns
     raw = si.get_data(
         ticker,
         start.strftime("%m/%d/%y"),
         (end + dt.timedelta(days=1)).strftime("%m/%d/%y"),
     )[["open", "close"]]
+
+    # turn into data frame with one column (value) and forward fill any missing values
     rep = pd.concat([raw["open"], raw["close"]]).to_frame().fillna(method="ffill")
     rep.columns = ["value"]
+
+    # add open and close times to index, and return sorted dataframe
     rep.index = pd.concat(
         [
             raw.index.to_series() + dt.timedelta(hours=times["open"]),
@@ -102,7 +120,7 @@ def merge_portfolio(portfolio: List[Stock]) -> pd.DataFrame:
     rep = reduce(lambda a, b: a.add(b, fill_value=0), daily_average_dfs)
     rep["actual_change"] = rep["value"] - rep["book_cost"]
     rep["percent_change"] = rep["actual_change"] * 100 / rep["book_cost"]
-    
+
     return rep
 
 
@@ -144,7 +162,7 @@ dropdown_options = [{"label": stock.name, "value": stock.ticker} for stock in PO
 dropdown_options[0:0] = [
     {"label": "Portfolio Percentage Loss/Gain", "value": "PERCENT.LG"},
     {"label": "Portfolio Actual Loss/Gain", "value": "ACTUAL.LG"},
-    ]
+]
 app = dash.Dash(__name__)
 app.layout = html.Div(
     children=[
@@ -172,55 +190,43 @@ def update_graph(ticker):
             color = COLOUR_RED
         fig = px.line(data, x=data.index, y="percent_change")
         fig.update_traces(line_color=color)
-        fig.update_layout(yaxis_title = "Percent change in portfolio value")
+        fig.update_layout(yaxis_title="Percent change in portfolio value")
 
     elif ticker == "ACTUAL.LG":
         if data.iloc[-1]["actual_change"] < data.iloc[0]["actual_change"]:
             color = COLOUR_RED
-        fig = px.line(data, x=data.index, y=data["actual_change"]/100)
+        fig = px.line(data, x=data.index, y=data["actual_change"] / 100)
         fig.update_traces(line_color=color)
-        fig.update_layout(yaxis_title = "Change in portfolio value (pounds)")
-        
+        fig.update_layout(yaxis_title="Change in portfolio value (pounds)")
+
     else:
         for stock in PORTFOLIO:
             if stock.ticker == ticker:
                 data = stock.data["value"]
                 break
         color = "#00ff04"
-        if(data.iloc[-1] < data.iloc[0]):
+        if data.iloc[-1] < data.iloc[0]:
             color = "red"
         fig = px.line(data, x=data.index, y="value")
         fig.update_traces(line_color=color)
-        fig.update_layout(yaxis_title = f"Value of {ticker} (pence)")
+        fig.update_layout(yaxis_title=f"Value of {ticker} (pence)")
 
     fig.update_layout(xaxis_title="Date")
     fig.update_layout(
         xaxis=dict(
             rangeselector=dict(
-                buttons=list([
-                    dict(count=1,
-                        label="1m",
-                        step="month",
-                        stepmode="backward"),
-                    dict(count=6,
-                        label="6m",
-                        step="month",
-                        stepmode="backward"),
-                    dict(count=1,
-                        label="YTD",
-                        step="year",
-                        stepmode="todate"),
-                    dict(count=1,
-                        label="1y",
-                        step="year",
-                        stepmode="backward"),
-                    dict(step="all")
-                ])
+                buttons=list(
+                    [
+                        dict(count=1, label="1m", step="month", stepmode="backward"),
+                        dict(count=6, label="6m", step="month", stepmode="backward"),
+                        dict(count=1, label="YTD", step="year", stepmode="todate"),
+                        dict(count=1, label="1y", step="year", stepmode="backward"),
+                        dict(step="all"),
+                    ]
+                )
             ),
-            rangeslider=dict(
-                visible=True
-            ),
-            type="date"
+            rangeslider=dict(visible=True),
+            type="date",
         )
     )
     return fig

@@ -1,7 +1,6 @@
 import datetime as dt
 import pandas as pd
 import numpy as np
-import pandas_datareader as web
 import json
 from yahoo_fin import stock_info as si
 from functools import reduce
@@ -52,7 +51,9 @@ class Stock:
             )
 
         # apply commission/fx charge using book price
-        self.data["value"].iloc[0] = self.book_cost * 100 / self.holding
+        self.data.loc[(self.data.index[0], "value")] = (
+            self.book_cost * 100 / self.holding
+        )  # equivalent to self.data.iloc[0]["value"], but prevents SettingWithCopyWarning
 
 
 def load_portfolio(file="portfolio.json") -> List[Stock]:
@@ -73,7 +74,11 @@ def get_values(
     start: dt.datetime, end: dt.datetime, ticker: str, exchange="LSE"
 ) -> pd.DataFrame:
     times = EXCHANGE_TIMES[exchange]
-    raw = si.get_data(ticker, start.strftime("%m/%d/%y"), (end+dt.timedelta(days=1)).strftime("%m/%d/%y"))[["open", "close"]]
+    raw = si.get_data(
+        ticker,
+        start.strftime("%m/%d/%y"),
+        (end + dt.timedelta(days=1)).strftime("%m/%d/%y"),
+    )[["open", "close"]]
     rep = pd.concat([raw["open"], raw["close"]]).to_frame().fillna(method="ffill")
     rep.columns = ["value"]
     rep.index = pd.concat(
@@ -91,11 +96,13 @@ def merge_portfolio(portfolio: List[Stock]) -> pd.DataFrame:
     for stock in portfolio:
         df = stock.data.copy()
         df = df.groupby([df["time"].dt.date]).mean() * stock.holding
-        df["book_cost"] = stock.book_cost*100.0
+        df["book_cost"] = stock.book_cost * 100.0
         daily_average_dfs.append(df)
 
     rep = reduce(lambda a, b: a.add(b, fill_value=0), daily_average_dfs)
-    rep["percent_change"] = (rep["value"]-rep["book_cost"])*100/rep["book_cost"]
+    rep["actual_change"] = rep["value"] - rep["book_cost"]
+    rep["percent_change"] = rep["actual_change"] * 100 / rep["book_cost"]
+    
     return rep
 
 
@@ -132,16 +139,19 @@ def parse_date(date_string) -> dt.datetime:
 
 PORTFOLIO = load_portfolio()
 TOTAL_VALUE = merge_portfolio(PORTFOLIO)
-print(TOTAL_VALUE)
+
 dropdown_options = [{"label": stock.name, "value": stock.ticker} for stock in PORTFOLIO]
-dropdown_options.insert(0, {"label": "Portfolio Value", "value": "TOTAL"})
+dropdown_options[0:0] = [
+    {"label": "Portfolio Percentage Loss/Gain", "value": "PERCENT.LG"},
+    {"label": "Portfolio Actual Loss/Gain", "value": "ACTUAL.LG"},
+    ]
 app = dash.Dash(__name__)
 app.layout = html.Div(
     children=[
         dcc.Dropdown(
             id="ticker_dropdown",
             options=dropdown_options,
-            value=PORTFOLIO[0].name,
+            value="PERCENT.LG",
             clearable=False,
         ),
         dcc.Graph(id="time-series-chart"),
@@ -154,20 +164,69 @@ app.layout = html.Div(
 )
 def update_graph(ticker):
     data = TOTAL_VALUE
-    if ticker == "TOTAL":
+    COLOUR_GREEN = "#00ff04"
+    COLOUR_RED = "red"
+    color = COLOUR_GREEN
+    if ticker == "PERCENT.LG":
+        if data.iloc[-1]["percent_change"] < 0:
+            color = COLOUR_RED
         fig = px.line(data, x=data.index, y="percent_change")
-        return fig
+        fig.update_traces(line_color=color)
+        fig.update_layout(yaxis_title = "Percent change in portfolio value")
+
+    elif ticker == "ACTUAL.LG":
+        if data.iloc[-1]["actual_change"] < data.iloc[0]["actual_change"]:
+            color = COLOUR_RED
+        fig = px.line(data, x=data.index, y=data["actual_change"]/100)
+        fig.update_traces(line_color=color)
+        fig.update_layout(yaxis_title = "Change in portfolio value (pounds)")
+        
     else:
         for stock in PORTFOLIO:
             if stock.ticker == ticker:
                 data = stock.data["value"]
                 break
+        color = "#00ff04"
+        if(data.iloc[-1] < data.iloc[0]):
+            color = "red"
+        fig = px.line(data, x=data.index, y="value")
+        fig.update_traces(line_color=color)
+        fig.update_layout(yaxis_title = f"Value of {ticker} (pence)")
 
-    fig = px.line(data, x=data.index, y="value")
+    fig.update_layout(xaxis_title="Date")
+    fig.update_layout(
+        xaxis=dict(
+            rangeselector=dict(
+                buttons=list([
+                    dict(count=1,
+                        label="1m",
+                        step="month",
+                        stepmode="backward"),
+                    dict(count=6,
+                        label="6m",
+                        step="month",
+                        stepmode="backward"),
+                    dict(count=1,
+                        label="YTD",
+                        step="year",
+                        stepmode="todate"),
+                    dict(count=1,
+                        label="1y",
+                        step="year",
+                        stepmode="backward"),
+                    dict(step="all")
+                ])
+            ),
+            rangeslider=dict(
+                visible=True
+            ),
+            type="date"
+        )
+    )
     return fig
 
 
-Popen(
+"""Popen(
     [r"C:\Program Files\Google\Chrome\Application\chrome.exe", "http://127.0.0.1:8050"]
-)
+)"""
 app.run_server(debug=True)

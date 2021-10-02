@@ -13,9 +13,12 @@ import plotly.express as px
 import requests
 from subprocess import Popen
 
-BASE_CURRENCY = "GBP"
-GRAPH_UNITS = "pence"
-EXCHANGE_TIMES = {"LSE": {"open": 8, "close": 17}, "NASDAQ": {"open": 14, "close": 21}}
+with open("config.json", "r") as f:
+    config_data = json.load(f)
+
+BASE_CURRENCY = config_data["BASE_CURRENCY"]
+GRAPH_UNITS = config_data["GRAPH_UNITS"]
+
 with open("currency_cache.json", "r") as f:
     CURRENCY_DATA = json.load(f)
 
@@ -131,7 +134,7 @@ def load_portfolio(file="portfolio.json") -> List[Stock]:
 def get_values(
     start: dt.datetime, end: dt.datetime, ticker: str, exchange="LSE"
 ) -> pd.DataFrame:
-    times = EXCHANGE_TIMES[exchange]  # open times of various exchanges
+    times = config_data["EXCHANGE_TIMES"][exchange]  # open times of various exchanges
 
     # collect the raw data from Yahoo Finance, take only the open and close columns
     raw = si.get_data(
@@ -286,10 +289,12 @@ def main():
         )
         return fig
 
-    """Popen(
-        [r"C:\Program Files\Google\Chrome\Application\chrome.exe", "http://127.0.0.1:8050"]
-    )"""
-    app.run_server(debug=True)
+
+    if config_data["AUTO_OPEN_BROWSER"]:
+        Popen(
+            [config_data["BROWSER_PATH"], "http://127.0.0.1:8050"]
+        )
+    app.run_server(debug=config_data["DEBUG"])
 
 
 main()

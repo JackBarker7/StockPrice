@@ -1,0 +1,17 @@
+{
+    "BASE_CURRENCY": "GBP",
+    "GRAPH_UNITS": "pence",
+    "BROWSER_PATH": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+    "AUTO_OPEN_BROWSER": true,
+    "DEBUG": true,
+    "EXCHANGE_TIMES": {
+        "LSE": {
+            "open": 8,
+            "close": 17
+        },
+        "NASDAQ": {
+            "open": 14,
+            "close": 21
+        }
+    }
+}

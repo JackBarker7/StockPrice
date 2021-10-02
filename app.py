@@ -14,6 +14,7 @@ import requests
 from subprocess import Popen
 
 BASE_CURRENCY = "GBP"
+GRAPH_UNITS = "pence"
 EXCHANGE_TIMES = {"LSE": {"open": 8, "close": 17}, "NASDAQ": {"open": 14, "close": 21}}
 with open("currency_cache.json", "r") as f:
     CURRENCY_DATA = json.load(f)
@@ -46,7 +47,7 @@ class Stock:
                 exchange=self.exchange,
             )
             # apply currency conversion (if required):
-            if self.currency != "GBP":
+            if self.currency != BASE_CURRENCY:
                 self.data["value"] = self.data.apply(
                     lambda row: convert_currency(
                         row["value"], row["time"], self.currency
@@ -74,7 +75,7 @@ class Stock:
                 exchange=self.exchange,
             )
             new_data.drop_duplicates(inplace=True)
-            if self.currency != "GBP":
+            if self.currency != BASE_CURRENCY:
                 new_data["value"] = new_data.apply(
                     lambda row: convert_currency(
                         row["value"], row["time"], self.currency
@@ -181,7 +182,7 @@ def convert_currency(
         return value * CURRENCY_DATA[c_from][date]
     except KeyError:
         request = requests.get(
-            f"https://api.exchangerate.host/convert?from={c_from}&to=GBP&date={date_str}"
+            f"https://api.exchangerate.host/convert?from={c_from}&to={BASE_CURRENCY}&date={date_str}"
         ).json()["info"]["rate"]
 
         CURRENCY_DATA[c_from][date_str] = request
@@ -259,7 +260,7 @@ def main():
                 color = "red"
             fig = px.line(data, x=data.index, y="value")
             fig.update_traces(line_color=color)
-            fig.update_layout(yaxis_title=f"Value of {ticker} (pence)")
+            fig.update_layout(yaxis_title=f"Value of {ticker} ({GRAPH_UNITS})")
 
         fig.update_layout(xaxis_title="Date")
         fig.update_layout(

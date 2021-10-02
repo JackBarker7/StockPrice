@@ -6,7 +6,7 @@ Stock data is taken from Yahoo Finance via the [yahoo-fin library](https://pypi.
 
 Portfolio data should be stored in a file called `portfolio.json` in the same directory as app.py. The file should be a list of dicts, with each dict having the follwing format:
 
- ```json
+ ```
  {
         "name": str,
         "ticker": str,

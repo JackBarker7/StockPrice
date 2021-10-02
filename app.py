@@ -12,6 +12,7 @@ from dash.dependencies import Input, Output
 import plotly.express as px
 import requests
 from subprocess import Popen
+import os
 
 with open("config.json", "r") as f:
     config_data = json.load(f)
@@ -22,6 +23,10 @@ GRAPH_UNITS = config_data["GRAPH_UNITS"]
 with open("currency_cache.json", "r") as f:
     CURRENCY_DATA = json.load(f)
 
+#prevent errors by creating cache files if they don't exist already
+for filename in ["currency_cache.json", "stock_cache.csv"]:
+    if not os.path.isfile(filename):
+        open(filename, "a").close()
 
 @dataclass
 class Stock:

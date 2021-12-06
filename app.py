@@ -23,10 +23,11 @@ GRAPH_UNITS = config_data["GRAPH_UNITS"]
 with open("currency_cache.json", "r") as f:
     CURRENCY_DATA = json.load(f)
 
-#prevent errors by creating cache files if they don't exist already
+# prevent errors by creating cache files if they don't exist already
 for filename in ["currency_cache.json", "stock_cache.csv"]:
     if not os.path.isfile(filename):
         open(filename, "a").close()
+
 
 @dataclass
 class Stock:
@@ -95,7 +96,6 @@ class Stock:
             self.data = pd.concat([self.data, new_data])
 
 
-
 def load_portfolio(file="portfolio.json") -> List[Stock]:
     """return is a list of Stock objects. Each Stock contains all the information about the stock from the json,
     plus a dataframe showing prices between start date and end date"""
@@ -103,8 +103,12 @@ def load_portfolio(file="portfolio.json") -> List[Stock]:
         stock_list = json.load(f)
 
     # load in cached data
-    imported_data = pd.read_csv("stock_cache.csv")
-    imported_data["time"] = pd.to_datetime(imported_data["time"])
+    try:
+        imported_data = pd.read_csv("stock_cache.csv")
+        imported_data["time"] = pd.to_datetime(imported_data["time"])
+    except pd.errors.EmptyDataError:
+        # handle case where no data in file
+        imported_data = pd.DataFrame(columns=["time", *stock_list])
 
     rep = []
     # create stock objects
@@ -124,12 +128,30 @@ def load_portfolio(file="portfolio.json") -> List[Stock]:
 
     # once all stocks have been created and __post_init__() has run, save to cache
 
+    #create a list of all the dataframes
+    dataframes: List[pd.DataFrame] = [
+        stock.data.drop("time", axis=1).drop(stock.data.index[-1])
+        for stock in rep
+    ]
+
+    # to concaternate, we require that all arrays have the same index. Therefore, we need to fill any missing index values with NaN
+    all_timestamps = np.unique(np.concatenate([df.index.values for df in dataframes]))
+    for i, df in enumerate(dataframes):
+
+        missing_indices = np.setdiff1d(all_timestamps, df.index.values)
+        nan_rows = pd.DataFrame(
+            {"value": np.empty(len(missing_indices)).fill(np.nan)},
+            index=missing_indices,
+            dtype=np.float64,
+        )
+        dataframes[i] = pd.concat([df, nan_rows]).sort_index()
+
     # last row in each df is dropped as this is a real-time value and may not be applicable in future
     to_cache = pd.concat(
-        [stock.data.drop("time", axis=1).drop(stock.data.index[-1]) for stock in rep],
+        dataframes,
         axis=1,
-        ignore_index=True,
     )
+
     to_cache.columns = [stock.name for stock in rep]
     to_cache.to_csv("stock_cache.csv", index_label="time")
 
@@ -160,7 +182,7 @@ def get_values(
         ]
     )
     rep: pd.DataFrame = rep.rename(index={rep.index[-1]: dt.datetime.now()})
-    if rep.index[-1]<rep.index[-2]:
+    if rep.index[-1] < rep.index[-2]:
         rep.drop(rep.index[-1], inplace=True)
     return rep.sort_index().assign(time=rep.index.values)
 
@@ -294,11 +316,8 @@ def main():
         )
         return fig
 
-
     if config_data["AUTO_OPEN_BROWSER"]:
-        Popen(
-            [config_data["BROWSER_PATH"], "http://127.0.0.1:8050"]
-        )
+        Popen([config_data["BROWSER_PATH"], "http://127.0.0.1:8050"])
     app.run_server(debug=config_data["DEBUG"])
 
 

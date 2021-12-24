@@ -13,14 +13,16 @@ from subprocess import Popen
 import os
 from utility_funcs import *
 
+CURRENT_FOLDER = os.path.dirname(os.path.abspath(__file__))
 
 GRAPH_UNITS = config_data["GRAPH_UNITS"]
 
-with open("config.json", "r") as f:
+with open(os.path.join(CURRENT_FOLDER, "data/config.json"), "r") as f:
     config_data = json.load(f)
 
 # prevent errors by creating cache files if they don't exist already
-for filename in ["currency_cache.json", "stock_cache.csv"]:
+for filename in ["data/currency_cache.json", "data/stock_cache.csv"]:
+    filename = os.path.join(CURRENT_FOLDER, filename)
     if not os.path.isfile(filename):
         open(filename, "a").close()
 
@@ -110,7 +112,7 @@ def main():
 
     if config_data["AUTO_OPEN_BROWSER"]:
         Popen([config_data["BROWSER_PATH"], "http://127.0.0.1:8050"])
-    app.run_server(debug=config_data["DEBUG"])
+    app.run_server(debug=config_data["DEBUG"], host="0.0.0.0", port="8050")
 
 
 main()

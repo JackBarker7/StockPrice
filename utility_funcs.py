@@ -7,12 +7,18 @@ from yahoo_fin import stock_info as si
 from functools import reduce
 import requests
 import json
+import os
 
+CURRENT_FOLDER = os.path.dirname(os.path.abspath(__file__))
 
-with open("data/currency_cache.json", "r") as f:
+#get correct path to files
+files = ["data/currency_cache.json", "data/config.json", "data/portfolio.json", "data/stock_cache.csv"]
+[CURRENCY_CACHE_FILE, CONFIG_FILE, PORTFOLIO_FILE, STOCK_CACHE_FILE] = [os.path.join(CURRENT_FOLDER, x) for x in files]
+
+with open(CURRENCY_CACHE_FILE, "r") as f:
     CURRENCY_DATA = json.load(f)
 
-with open("data/config.json", "r") as f:
+with open(CONFIG_FILE, "r") as f:
     config_data = json.load(f)
 
 BASE_CURRENCY = config_data["BASE_CURRENCY"]
@@ -83,7 +89,7 @@ class Stock:
             self.data = pd.concat([self.data, new_data])
 
 
-def load_portfolio(file="data/portfolio.json") -> List[Stock]:
+def load_portfolio(file=PORTFOLIO_FILE) -> List[Stock]:
     """return is a list of Stock objects. Each Stock contains all the information about the stock from the json,
     plus a dataframe showing prices between start date and end date"""
     with open(file, "r") as f:
@@ -91,7 +97,7 @@ def load_portfolio(file="data/portfolio.json") -> List[Stock]:
 
     # load in cached data
     try:
-        imported_data = pd.read_csv("data/stock_cache.csv")
+        imported_data = pd.read_csv(STOCK_CACHE_FILE)
         imported_data["time"] = pd.to_datetime(imported_data["time"])
     except pd.errors.EmptyDataError:
         # handle case where no data in file
@@ -140,7 +146,7 @@ def load_portfolio(file="data/portfolio.json") -> List[Stock]:
     )
 
     to_cache.columns = [stock.name for stock in rep]
-    to_cache.to_csv("data/stock_cache.csv", index_label="time")
+    to_cache.to_csv(STOCK_CACHE_FILE, index_label="time")
 
     return rep
 
@@ -203,7 +209,7 @@ def convert_currency(
         ).json()["info"]["rate"]
 
         CURRENCY_DATA[c_from][date_str] = request
-        with open("data/currency_cache.json", "w") as f:
+        with open(CURRENCY_CACHE_FILE, "w") as f:
             json.dump(CURRENCY_DATA, f)
         return value * request
 

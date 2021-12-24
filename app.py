@@ -14,7 +14,6 @@ import os
 from utility_funcs import *
 
 
-
 GRAPH_UNITS = config_data["GRAPH_UNITS"]
 
 with open("config.json", "r") as f:
@@ -24,9 +23,6 @@ with open("config.json", "r") as f:
 for filename in ["currency_cache.json", "stock_cache.csv"]:
     if not os.path.isfile(filename):
         open(filename, "a").close()
-
-
-
 
 
 PORTFOLIO = load_portfolio()

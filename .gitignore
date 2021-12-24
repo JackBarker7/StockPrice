@@ -3,4 +3,4 @@ jupyter-testing.ipynb
 portfolio.json
 currency_cache.json
 stock_cache.csv
-__pychache__
+__pycache__

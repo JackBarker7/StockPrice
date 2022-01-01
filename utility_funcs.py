@@ -11,9 +11,16 @@ import os
 
 CURRENT_FOLDER = os.path.dirname(os.path.abspath(__file__))
 
-#get correct path to files
-files = ["data/currency_cache.json", "data/config.json", "data/portfolio.json", "data/stock_cache.csv"]
-[CURRENCY_CACHE_FILE, CONFIG_FILE, PORTFOLIO_FILE, STOCK_CACHE_FILE] = [os.path.join(CURRENT_FOLDER, x) for x in files]
+# get correct path to files
+files = [
+    "data/currency_cache.json",
+    "data/config.json",
+    "data/portfolio.json",
+    "data/stock_cache.csv",
+]
+[CURRENCY_CACHE_FILE, CONFIG_FILE, PORTFOLIO_FILE, STOCK_CACHE_FILE] = [
+    os.path.join(CURRENT_FOLDER, x) for x in files
+]
 
 with open(CURRENCY_CACHE_FILE, "r") as f:
     CURRENCY_DATA = json.load(f)
@@ -22,6 +29,8 @@ with open(CONFIG_FILE, "r") as f:
     config_data = json.load(f)
 
 BASE_CURRENCY = config_data["BASE_CURRENCY"]
+
+
 @dataclass
 class Stock:
     name: str
@@ -89,7 +98,7 @@ class Stock:
             self.data = pd.concat([self.data, new_data])
 
 
-def load_portfolio(file=PORTFOLIO_FILE) -> List[Stock]:
+def load_portfolio(file: str = PORTFOLIO_FILE) -> List[Stock]:
     """return is a list of Stock objects. Each Stock contains all the information about the stock from the json,
     plus a dataframe showing prices between start date and end date"""
     with open(file, "r") as f:
@@ -121,10 +130,9 @@ def load_portfolio(file=PORTFOLIO_FILE) -> List[Stock]:
 
     # once all stocks have been created and __post_init__() has run, save to cache
 
-    #create a list of all the dataframes
+    # create a list of all the dataframes
     dataframes: List[pd.DataFrame] = [
-        stock.data.drop("time", axis=1).drop(stock.data.index[-1])
-        for stock in rep
+        stock.data.drop("time", axis=1).drop(stock.data.index[-1]) for stock in rep
     ]
 
     # to concaternate, we require that all arrays have the same index. Therefore, we need to fill any missing index values with NaN
@@ -152,7 +160,7 @@ def load_portfolio(file=PORTFOLIO_FILE) -> List[Stock]:
 
 
 def get_values(
-    start: dt.datetime, end: dt.datetime, ticker: str, exchange="LSE"
+    start: dt.datetime, end: dt.datetime, ticker: str, exchange: str = "LSE"
 ) -> pd.DataFrame:
     times = config_data["EXCHANGE_TIMES"][exchange]  # open times of various exchanges
 
@@ -214,11 +222,11 @@ def convert_currency(
         return value * request
 
 
-def get_current_price(ticker):
+def get_current_price(ticker: str) -> np.float64:
     return si.get_live_price(ticker)
 
 
-def parse_date(date_string) -> dt.datetime:
+def parse_date(date_string: str) -> dt.datetime:
     """parses date from YYYY-MM-DD to datetime object.
     Returns current date if date_string is empty"""
     if not date_string:

@@ -2,7 +2,7 @@
     "BASE_CURRENCY": "GBP",
     "GRAPH_UNITS": "pence",
     "BROWSER_PATH": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-    "AUTO_OPEN_BROWSER": true,
+    "AUTO_OPEN_BROWSER": false,
     "DEBUG": true,
     "EXCHANGE_TIMES": {
         "LSE": {

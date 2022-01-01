@@ -55,6 +55,7 @@ app.layout = html.Div(
                     value="PERCENT.LG",
                     clearable=False,
                 ),
+                html.Div(id="title-div", className="title-div"),
                 dcc.Graph(
                     id="time-series-chart",
                     figure={
@@ -114,7 +115,7 @@ app.layout = html.Div(
                 ),
                 html.Div(
                     # min price
-                    className="info-box",
+                    className="min-info-box",
                     children=[
                         html.Div(
                             className="header-box", children=[html.H2("Minimum Value")]
@@ -138,6 +139,7 @@ app.layout = html.Div(
         Output("gain-info", "children"),
         Output("max-info", "children"),
         Output("min-info", "children"),
+        Output("title-div", "children"),
         Output("time-series-chart", "figure"),
     ],
     [Input("ticker_dropdown", "value")],
@@ -147,7 +149,6 @@ def update_graph(ticker):
     line_color = COLOURS["positive_green"]
 
     layout = {
-        "yaxis_title": None,
         "xaxis_title": "Date",
         "plot_bgcolor": COLOURS["graph_bg"],
         "paper_bgcolor": COLOURS["graph_bg"],
@@ -173,6 +174,7 @@ def update_graph(ticker):
         fig = px.line(data, x=data.index, y="percent_change")
 
         layout["yaxis_title"] = "Percent change in portfolio value"
+        title = "Percent change in portfolio value"
 
     elif ticker == "ACTUAL.LG":
         # if the actual loss/gain option is selected
@@ -186,6 +188,7 @@ def update_graph(ticker):
         fig = px.line(data, x=data.index, y=data["actual_change"] / 100)
 
         layout["yaxis_title"] = "Change in portfolio value (pounds)"
+        title = "Actual change in portfolio value"
 
     else:
         # if an individual stock is selected
@@ -193,6 +196,7 @@ def update_graph(ticker):
             if stock.ticker == ticker:
                 data = stock.data["value"]
                 book_cost_per_share = stock.book_cost * 100 / stock.holding
+                name = stock.name
                 break
 
         response["value"] = str(round(data.iloc[-1], 1))
@@ -212,6 +216,7 @@ def update_graph(ticker):
         fig = px.line(data, x=data.index, y="value")
 
         layout["yaxis_title"] = f"Value of {ticker} ({GRAPH_UNITS})"
+        title = f"Value of {name}"
 
     fig.update_traces(line_color=line_color)
 
@@ -233,7 +238,7 @@ def update_graph(ticker):
 
     layout["yaxis"] = {"gridcolor": line_color}
     fig.update_layout(layout)
-    return *[str(i) for i in response.values()], fig
+    return *[str(i) for i in response.values()], title, fig
 
 
 if config_data["AUTO_OPEN_BROWSER"]:

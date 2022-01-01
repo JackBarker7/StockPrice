@@ -3,15 +3,63 @@
     --element-bg-color: #082255;
   }
 
-
-
 body {
     font-family: "Open Sans", sans-serif;
     background-color: #061E44;
     color: #ffffff;
 }
-/*dropdown menu*/
 
+.title-div{
+    font-size: 50px !important;
+    text-align: center;
+    background-color: var(--element-bg-color);
+    padding-top: 20px;
+}
+
+/*Stock info boxes*/
+.info-box{
+    width: 24.25%;
+    background-color: var(--element-bg-color);
+    color: white;
+    float: left;
+    margin-right: 1%;
+    margin-top: 20px;
+}
+
+.min-info-box{
+    width: 24.25%;
+    background-color: var(--element-bg-color);
+    color: white;
+    float: left;
+    margin-top: 20px;
+}
+
+.info-box:hover, .min-info-box:hover, .data-box:hover{
+    background-color: rgb(0, 2, 128);
+    font-weight: bold;
+}
+.data-box{
+    height: 190px;
+}
+
+.wrapper{
+    margin-left: 100px;
+    margin-right: 100px;
+}
+
+h2{
+    text-align: center;
+    padding-top: 10px;
+}
+
+p{
+    text-align: center;
+    line-height: 100px;
+    font-size: 70px !important;
+}
+
+
+/*dropdown menu*/
 .Select-value {
     /*background of bar*/
     background-color: var(--dropdown-bg-color);
@@ -33,30 +81,3 @@ body {
 }
 
 
-.info-box{
-    width: 400px;
-    background-color: var(--element-bg-color);
-    color: white;
-    float: left;
-    margin-right: 20px;
-    margin-top: 20px;
-}
-
-.data-box{
-    height: 190px;
-}
-
-.wrapper{
-    margin-left: 100px;
-}
-
-h2{
-    text-align: center;
-    padding-top: 10px;
-}
-
-p{
-    text-align: center;
-    line-height: 100px;
-    font-size: 70px !important;
-}

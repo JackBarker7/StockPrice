@@ -4,7 +4,7 @@ A Python application that uses Plotly/Dash to display the value of a portfolio o
 
 Stock data is taken from Yahoo Finance via the [yahoo-fin library](https://pypi.org/project/yahoo-fin/). Currency data is taken from [exchangerate.host](https://exchangerate.host/#/). All data is cached where possible to reduce api calls.
 
-Portfolio data should be stored in a file called `portfolio.json` in the same directory as app.py. The file should be a list of dicts, with each dict having the follwing format:
+Portfolio data should be stored in a file called `portfolio.json` in the same directory as app.py. The file should be a list of objects, with each object having the follwing format:
 
  ```
  {
@@ -20,3 +20,4 @@ Portfolio data should be stored in a file called `portfolio.json` in the same di
         "exchange": str
  }
  ```
+![image](https://user-images.githubusercontent.com/22815544/147879866-d4ea19ee-3a33-4d38-989b-4cb08cc768f3.png)

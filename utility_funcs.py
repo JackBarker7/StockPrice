@@ -8,6 +8,12 @@ from functools import reduce
 import requests
 import json
 import os
+import sys
+
+if __name__ == "__main__":
+    print("Run app.py instead")
+    sys.exit()
+
 
 CURRENT_FOLDER = os.path.dirname(os.path.abspath(__file__))
 
@@ -120,7 +126,7 @@ def load_portfolio(file: str = PORTFOLIO_FILE) -> List[Stock]:
 
         # check if stock has any data cached, and if it does, assign it to the new stock
         if name in list(imported_data.columns):
-            stock["data"] = imported_data[["time", name]].dropna()
+            stock["data"] = imported_data[["time", name]].fillna(method="ffill")
             stock["data"].columns = ["time", "value"]
 
             stock["data"].index = stock["data"]["time"]
@@ -165,11 +171,16 @@ def get_values(
     times = config_data["EXCHANGE_TIMES"][exchange]  # open times of various exchanges
 
     # collect the raw data from Yahoo Finance, take only the open and close columns
-    raw = si.get_data(
-        ticker,
-        start.strftime("%m/%d/%y"),
-        (end + dt.timedelta(days=1)).strftime("%m/%d/%y"),
-    )[["open", "close"]]
+    try:
+        raw = si.get_data(
+            ticker,
+            start.strftime("%m/%d/%y"),
+            (end + dt.timedelta(days=1)).strftime("%m/%d/%y"),
+        )[["open", "close"]]
+    except KeyError:
+        #some wierd quirk with the yahoo_fin module
+        index = pd.date_range(start, end, freq="1D")
+        raw = pd.DataFrame(np.nan, columns=["open", "close"], index=index)
 
     # turn into data frame with one column (value) and forward fill any missing values
     rep = pd.concat([raw["open"], raw["close"]]).to_frame().fillna(method="ffill")
@@ -191,9 +202,12 @@ def get_values(
 def merge_portfolio(portfolio: List[Stock]) -> pd.DataFrame:
     daily_average_dfs = []
     for stock in portfolio:
-        df = stock.data.copy()
+        df = stock.data.copy().fillna(method="ffill")
+        #get mean for each day
         df = df.groupby([df["time"].dt.date]).mean() * stock.holding
         df["book_cost"] = stock.book_cost * 100.0
+        #if stock does not have recorded value for this day, set book cost to 0
+        df.loc[np.isnan(df["value"]), "book_cost"] = 0
         daily_average_dfs.append(df)
 
     rep = reduce(lambda a, b: a.add(b, fill_value=0), daily_average_dfs)

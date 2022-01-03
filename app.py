@@ -1,18 +1,10 @@
-import datetime as dt
-import pandas as pd
-import numpy as np
 import json
-from functools import reduce
-from typing import List
-from dataclasses import dataclass
 import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output
 import plotly.express as px
 from subprocess import Popen
 import os
-
-from yahoo_fin import stock_info
 from utility_funcs import *
 
 CURRENT_FOLDER = os.path.dirname(os.path.abspath(__file__))
@@ -194,7 +186,7 @@ def update_graph(ticker):
         # if an individual stock is selected
         for stock in PORTFOLIO:
             if stock.ticker == ticker:
-                data = stock.data["value"]
+                data = stock.data["value"].fillna(method="ffill").dropna()
                 book_cost_per_share = stock.book_cost * 100 / stock.holding
                 name = stock.name
                 break

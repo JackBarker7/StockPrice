@@ -178,10 +178,10 @@ def update_graph(ticker):
 
     elif ticker == "ACTUAL.LG":
         # if the actual loss/gain option is selected
-        response["value"] = str(round(data.iloc[-1]["actual_change"], 1))
+        response["value"] = "£" + str(round(data.iloc[-1]["actual_change"]/100, 2))
         response["gain"] = str(round(data.iloc[-1]["percent_change"], 1)) + "%"
-        response["max"] = str(round(data["actual_change"].max(), 1))
-        response["min"] = str(round(data["actual_change"].min(), 1))
+        response["max"] = "£" + str(round(data["actual_change"].max()/100, 2))
+        response["min"] = "£" + str(round(data["actual_change"].min()/100, 2))
 
         if data.iloc[-1]["actual_change"] < data.iloc[0]["actual_change"]:
             line_color = COLOURS["negative_red"]

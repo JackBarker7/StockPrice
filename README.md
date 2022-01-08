@@ -20,4 +20,8 @@ Portfolio data should be stored in a file called `portfolio.json` in the same di
         "exchange": str
  }
  ```
+ 
+ 
+ ![image](https://user-images.githubusercontent.com/22815544/148661457-a27711b9-82c2-4862-a495-7733c649c277.png)
+(Some details redacted for privacy)
 ![image](https://user-images.githubusercontent.com/22815544/147879866-d4ea19ee-3a33-4d38-989b-4cb08cc768f3.png)

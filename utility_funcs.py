@@ -43,7 +43,7 @@ class Stock:
     ticker: str
     currency: str
     date_bought: dt.datetime
-    holding: int
+    holding: float
     book_cost: float
     commission: float
     fx_charge: float
@@ -154,13 +154,16 @@ def load_portfolio(file: str = PORTFOLIO_FILE) -> List[Stock]:
         dataframes[i] = pd.concat([df, nan_rows]).sort_index()
 
     # last row in each df is dropped as this is a real-time value and may not be applicable in future
-    to_cache = pd.concat(
-        dataframes,
-        axis=1,
-    )
+    try:
+        to_cache = pd.concat(
+            dataframes,
+            axis=1,
+        )
 
-    to_cache.columns = [stock.name for stock in rep]
-    to_cache.to_csv(STOCK_CACHE_FILE, index_label="time")
+        to_cache.columns = [stock.name for stock in rep]
+        to_cache.to_csv(STOCK_CACHE_FILE, index_label="time")
+    except Exception as e:
+        print(f"Caching has failed. Error message: \n{e}")
 
     return rep
 

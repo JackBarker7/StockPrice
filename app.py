@@ -1,7 +1,7 @@
 import json
 import dash
 from dash import dcc, html, callback_context
-from dash.dependencies import Input, Output
+from dash.dependencies import Input, Output, State
 from dash.exceptions import PreventUpdate
 import plotly.express as px
 from subprocess import Popen
@@ -12,7 +12,12 @@ CURRENT_FOLDER = os.path.dirname(os.path.abspath(__file__))
 
 GRAPH_UNITS = config_data["GRAPH_UNITS"]
 
-COLOURS = {"positive_green": "#00ff04", "negative_red": "red", "graph_bg": "#082255", "highlighted_bg": "rgb(5, 46, 158)"}
+COLOURS = {
+    "positive_green": "#00ff04",
+    "negative_red": "red",
+    "graph_bg": "#082255",
+    "highlighted_bg": "rgb(5, 46, 158)",
+}
 
 with open(os.path.join(CURRENT_FOLDER, "data/config.json"), "r") as f:
     config_data = json.load(f)
@@ -28,10 +33,37 @@ PORTFOLIO = load_portfolio()
 TOTAL_VALUE = merge_portfolio(PORTFOLIO)
 # create the dropdown menu
 dropdown_options = [{"label": stock.name, "value": stock.ticker} for stock in PORTFOLIO]
-dropdown_options[0:0] = [
-    {"label": "Portfolio Percentage Loss/Gain", "value": "PERCENT.LG"},
-    {"label": "Portfolio Actual Loss/Gain", "value": "ACTUAL.LG"},
-]
+
+
+def new_stock_dialog() -> list:
+    """Creates the children of the "add new stock" dialog div"""
+
+    form_div_children = []
+    for field in FIELDS:
+        id = field.lower().replace(" ", "-")
+        form_div_children.append(
+            html.Div(
+                style={"clear": "both", "padding-bottom": "5px"},
+                children=[
+                    html.Label(
+                        htmlFor=f"new-stock-dialog-{id}",
+                        children=field,
+                        style={"float": "left", "padding-right": "10px"},
+                    ),
+                    dcc.Input(
+                        id=f"new-stock-dialog-{id}",
+                        type="text",
+                        className="stock-input",
+                    ),
+                    html.Br(),
+                ],
+            )
+        )
+    form_div_children.append(html.Button(id="stock-dialog-submit", children="Submit"))
+    form_div_children.append(
+        html.P(id="placeholder-div", style={"display": "none"}, children="")
+    )  # div to act as a placeholder for callbacks with no output)
+    return form_div_children
 
 
 def generate_summary_graph(display_var="percent_change"):
@@ -39,7 +71,7 @@ def generate_summary_graph(display_var="percent_change"):
 
     data = TOTAL_VALUE[display_var]
     if display_var == "actual_change":
-        data = data/100
+        data = data / 100
 
     # set line colour
     line_color = COLOURS["positive_green"]
@@ -98,6 +130,27 @@ app.layout = html.Div(
     id="wrapper",
     className="wrapper",
     children=[
+        html.Div(
+            id="navbar-wrapper",
+            children=[
+                html.Div(
+                    id="navbar",
+                    className="navbar",
+                    children=[
+                        html.Button(
+                            id="add-stock-button",
+                            className="navbar-option",
+                            children="Add new stock",
+                        )
+                    ],
+                ),
+                html.Div(
+                    id="add-stock-form",
+                    className="add-stock-form",
+                    children=[html.Form(children=new_stock_dialog())],
+                ),
+            ],
+        ),
         html.Div(
             className="summary",
             children=[
@@ -196,7 +249,7 @@ app.layout = html.Div(
                         dcc.Dropdown(
                             id="ticker_dropdown",
                             options=dropdown_options,
-                            value="PERCENT.LG",
+                            value=dropdown_options[0]["value"],
                             clearable=False,
                         ),
                         html.Div(id="title-div", className="title-div"),
@@ -284,21 +337,77 @@ app.layout = html.Div(
 
 
 @app.callback(
-    [Output("summary-chart", "figure"), Output("percent-change-box", "style"), Output("actual-change-box", "style")],
+    [Output("add-stock-form", "style")],
+    [Input("add-stock-button", "n_clicks"), Input("stock-dialog-submit", "n_clicks")],
+    [
+        State(f"new-stock-dialog-{id.lower().replace(' ', '-')}", "value")
+        for id in FIELDS
+    ],
+)
+def show_stock_form(show_button_clicks, submit_button_clicks, *input_data):
+    """If "add new stock" button is clicked, change the visibility of the form
+    if there is an odd number of clicks, show the form, otherwise hide it"""
+
+    changed_id = [p["prop_id"] for p in callback_context.triggered][0]
+    if show_button_clicks == None:
+        raise PreventUpdate
+    if "add-stock-button" in changed_id:
+        if show_button_clicks % 2:
+            return [{"display": "block"}]
+        else:
+            return [{"display": "none"}]
+    else:
+        add_new_stock_to_file(input_data)
+        return [{"display": "none"}]
+
+    
+
+
+# @app.callback(
+#     [Output("add-stock-form", "style")],
+#     [Input("stock-dialog-submit", "n_clicks")],
+#     [
+#         State(f"new-stock-dialog-{id.lower().replace(' ', '-')}", "value")
+#         for id in FIELDS
+#     ],
+# )
+# def add_new_stock(button_clicks, *input_data):
+#     if button_clicks == None:
+#         raise PreventUpdate
+#     else:
+#         print("here")
+#         add_new_stock_to_file(input_data)
+
+#     return [{"display": "none"}]
+
+
+@app.callback(
+    [
+        Output("summary-chart", "figure"),
+        Output("percent-change-box", "style"),
+        Output("actual-change-box", "style"),
+    ],
     [Input("percent-change-box", "n_clicks"), Input("actual-change-box", "n_clicks")],
 )
-def update_summary_graph(percent_new_clicks, actual_new_clicks):
-    """updates graph data and style of percent change and actual change divs in summary section when either one is clicked
+def update_summary_graph(percent_new_clicks: int, actual_new_clicks: int) -> px.line:
+    """updates graph data and style of percent change and actual change divs in summary section when either one is clicked.
     the clicked div becomes a lighter blue, and the unclicked one returns to the original darker blue"""
-    changed_id = [p['prop_id'] for p in callback_context.triggered][0]
+    changed_id = [p["prop_id"] for p in callback_context.triggered][0]
 
     if percent_new_clicks == None:
         raise PreventUpdate
     elif "actual-change-box" in changed_id:
-        return [generate_summary_graph("actual_change"), {"background-color": COLOURS["graph_bg"]}, {"background-color": COLOURS["highlighted_bg"]}]
+        return [
+            generate_summary_graph("actual_change"),
+            {"background-color": COLOURS["graph_bg"]},
+            {"background-color": COLOURS["highlighted_bg"]},
+        ]
     else:
-        return [generate_summary_graph("percent_change"), {"background-color": COLOURS["highlighted_bg"]}, {"background-color": COLOURS["graph_bg"]}]
-    
+        return [
+            generate_summary_graph("percent_change"),
+            {"background-color": COLOURS["highlighted_bg"]},
+            {"background-color": COLOURS["graph_bg"]},
+        ]
 
 
 @app.callback(
@@ -312,7 +421,9 @@ def update_summary_graph(percent_new_clicks, actual_new_clicks):
     ],
     [Input("ticker_dropdown", "value")],
 )
-def update_graph(ticker):
+def update_graph(ticker: str) -> list:
+    """updates bottom graph and data boxes below it"""
+
     data = TOTAL_VALUE
     line_color = COLOURS["positive_green"]
 
@@ -330,61 +441,27 @@ def update_graph(ticker):
         "min": None,
     }
 
-    if ticker == "PERCENT.LG":
-        # if the percent change option is selected
-        response["value"] = str(round(data.iloc[-1]["percent_change"], 1)) + "%"
-        response["gain"] = response["value"]
-        response["max"] = str(round(data["percent_change"].max(), 1)) + "%"
-        response["min"] = str(round(data["percent_change"].min(), 1)) + "%"
+    for stock in PORTFOLIO:
+        if stock.ticker == ticker:
+            data = stock.data["value"].fillna(method="ffill").dropna()
+            book_cost_per_share = stock.book_cost * 100 / stock.holding
+            name = stock.name
+            break
 
-        if data.iloc[-1]["percent_change"] < 0:
-            line_color = COLOURS["negative_red"]
-        fig = px.line(data, x=data.index, y="percent_change")
+    response["value"] = str(round(data.iloc[-1], 1))
+    response["gain"] = (
+        str(round((data.iloc[-1] - book_cost_per_share) * 100 / book_cost_per_share, 1))
+        + "%"
+    )
+    response["max"] = str(round(data.max(), 1))
+    response["min"] = str(round(data.min(), 1))
 
-        layout["yaxis_title"] = "Percent change in portfolio value"
-        title = "Percent change in portfolio value"
+    if data.iloc[-1] < data.iloc[0]:
+        line_color = COLOURS["negative_red"]
+    fig = px.line(data, x=data.index, y="value")
 
-    elif ticker == "ACTUAL.LG":
-        # if the actual loss/gain option is selected
-        response["value"] = "£" + str(round(data.iloc[-1]["actual_change"] / 100, 2))
-        response["gain"] = str(round(data.iloc[-1]["percent_change"], 1)) + "%"
-        response["max"] = "£" + str(round(data["actual_change"].max() / 100, 2))
-        response["min"] = "£" + str(round(data["actual_change"].min() / 100, 2))
-
-        if data.iloc[-1]["actual_change"] < data.iloc[0]["actual_change"]:
-            line_color = COLOURS["negative_red"]
-        fig = px.line(data, x=data.index, y=data["actual_change"] / 100)
-
-        layout["yaxis_title"] = "Change in portfolio value (pounds)"
-        title = "Actual change in portfolio value"
-
-    else:
-        # if an individual stock is selected
-        for stock in PORTFOLIO:
-            if stock.ticker == ticker:
-                data = stock.data["value"].fillna(method="ffill").dropna()
-                book_cost_per_share = stock.book_cost * 100 / stock.holding
-                name = stock.name
-                break
-
-        response["value"] = str(round(data.iloc[-1], 1))
-        response["gain"] = (
-            str(
-                round(
-                    (data.iloc[-1] - book_cost_per_share) * 100 / book_cost_per_share, 1
-                )
-            )
-            + "%"
-        )
-        response["max"] = str(round(data.max(), 1))
-        response["min"] = str(round(data.min(), 1))
-
-        if data.iloc[-1] < data.iloc[0]:
-            line_color = COLOURS["negative_red"]
-        fig = px.line(data, x=data.index, y="value")
-
-        layout["yaxis_title"] = f"Value of {ticker} ({GRAPH_UNITS})"
-        title = f"Value of {name}"
+    layout["yaxis_title"] = f"Value of {ticker} ({GRAPH_UNITS})"
+    title = f"Value of {name}"
 
     fig.update_traces(line_color=line_color)
 
@@ -413,4 +490,6 @@ if config_data["AUTO_OPEN_BROWSER"]:
     Popen([config_data["BROWSER_PATH"], "http://127.0.0.1:8050"])
 
 # uncomment to run locally
-app.run_server(debug=config_data["DEBUG"], host="0.0.0.0", port="8050")
+app.run_server(
+    debug=config_data["DEBUG"], host="0.0.0.0", port="8050", dev_tools_hot_reload=False
+)

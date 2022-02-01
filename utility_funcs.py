@@ -17,6 +17,20 @@ if __name__ == "__main__":
 
 CURRENT_FOLDER = os.path.dirname(os.path.abspath(__file__))
 
+
+FIELDS = [
+    "Name",
+    "Ticker",
+    "Currency",
+    "Date Bought",
+    "Date Sold",
+    "Holding",
+    "Book Cost",
+    "Commission",
+    "FX Charge",
+    "Exchange",
+    
+]
 # get correct path to files
 files = [
     "data/currency_cache.json",
@@ -163,6 +177,7 @@ def load_portfolio(file: str = PORTFOLIO_FILE) -> List[Stock]:
         to_cache.columns = [stock.name for stock in rep]
         to_cache.to_csv(STOCK_CACHE_FILE, index_label="time")
     except Exception as e:
+        #for some reason this is usually a temporary problem that seems to sort itself out when code is run a few days later
         print(f"Caching has failed. Error message: \n{e}")
 
     return rep
@@ -249,3 +264,12 @@ def parse_date(date_string: str) -> dt.datetime:
     if not date_string:
         return dt.date.today()
     return dt.datetime.strptime(date_string, "%Y-%m-%d")
+
+
+def add_new_stock_to_file(new_data: tuple):
+    with open(PORTFOLIO_FILE, "r") as f:
+        portfolio = json.load(f)
+    
+    new_data = list(new_data)
+    new_data[5:9] = [int(i) for i in new_data[5:9]]
+    print(new_data)

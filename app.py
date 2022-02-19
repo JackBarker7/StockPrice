@@ -80,12 +80,14 @@ def generate_summary_graph(display_var="percent_change"):
 
     if display_var == "percent_change":
         fig = px.line(data, x=data.index, y=display_var)
+        title_kw = "Percentage c"
     else:
         fig = px.line(data, x=data.index, y=display_var)
+        title_kw = "C"
 
     layout = {
         "xaxis_title": "Date",
-        "yaxis_title": "Percentage change in portfolio value",
+        "yaxis_title": f"{title_kw}hange in portfolio value",
         "xaxis": {
             "rangeselector": {
                 "buttons": [
@@ -123,6 +125,57 @@ def generate_summary_graph(display_var="percent_change"):
     fig.update_layout(layout)
     fig.update_traces(line_color=line_color)
     return fig
+
+
+def generate_gainers() -> List:
+    """generates boxes to show largest gainers and losers"""
+    children = []
+    titles = [
+        "Largest Gain (%)",
+        f"Largest Profit ({config_data['BASE_CURRENCY']})",
+        "Smallest Gain (%)",
+        f"Smallest Profit ({config_data['BASE_CURRENCY']})",
+    ]
+    max_percent_info = (-np.inf, "")  # holds value and name of stock
+    max_profit_info = (-np.inf, "")
+    min_percent_info = (np.inf, "")
+    min_profit_info = (np.inf, "")
+
+    for stock in PORTFOLIO:
+        final_val = stock.data.iloc[-1]["value"]
+        book_cost_per_share = stock.book_cost * 100 / stock.holding
+        total_profit = (final_val - book_cost_per_share) * stock.holding / 100
+        percent_gain = (final_val - book_cost_per_share) * 100 / book_cost_per_share
+
+        if percent_gain > max_percent_info[0]:
+            max_percent_info = (percent_gain, stock.name)
+        if percent_gain < min_percent_info[0]:
+            min_percent_info = (percent_gain, stock.name)
+
+        if total_profit > max_profit_info[0]:
+            max_profit_info = (total_profit, stock.name)
+        if total_profit < min_profit_info[0]:
+            min_profit_info = (total_profit, stock.name)
+
+    data = [
+        (str(round(i[0], 1)), i[1])
+        for i in [max_percent_info, max_profit_info, min_percent_info, min_profit_info]
+    ]
+    data[0] = (data[0][0] + "%", data[0][1])
+    data[2] = (data[2][0] + "%", data[2][1])  # add percentage sign to relevant values
+
+    for i in range(4):
+        children.append(
+            html.Div(
+                className="gainers-box",
+                children=[
+                    html.Div(className="gainers-title", children=titles[i]),
+                    html.Div(className="gainers-content", children=data[i][1]),
+                    html.Div(className="gainers-content", children=data[i][0]),
+                ],
+            )
+        )
+    return children
 
 
 app = dash.Dash(__name__)
@@ -239,6 +292,7 @@ app.layout = html.Div(
                 ),
             ],
         ),
+        html.Div(className="gainers-wrapper", children=generate_gainers()),
         html.Div(
             className="individual-wrapper",
             children=[
@@ -274,7 +328,7 @@ app.layout = html.Div(
                             children=[
                                 html.Div(
                                     className="header-box",
-                                    children=[html.H2("Current Value")],
+                                    children=[html.H2("Current Profit")],
                                 ),
                                 html.Div(
                                     id="value-box",
@@ -304,7 +358,7 @@ app.layout = html.Div(
                             children=[
                                 html.Div(
                                     className="header-box",
-                                    children=[html.H2("Maximum Value")],
+                                    children=[html.H2("Maximum Profit")],
                                 ),
                                 html.Div(
                                     id="max-box",
@@ -319,7 +373,7 @@ app.layout = html.Div(
                             children=[
                                 html.Div(
                                     className="header-box",
-                                    children=[html.H2("Minimum Value")],
+                                    children=[html.H2("Minimum Profit")],
                                 ),
                                 html.Div(
                                     id="min-box",
@@ -359,8 +413,6 @@ def show_stock_form(show_button_clicks, submit_button_clicks, *input_data):
     else:
         add_new_stock_to_file(input_data)
         return [{"display": "none"}]
-
-    
 
 
 # @app.callback(
@@ -445,16 +497,18 @@ def update_graph(ticker: str) -> list:
         if stock.ticker == ticker:
             data = stock.data["value"].fillna(method="ffill").dropna()
             book_cost_per_share = stock.book_cost * 100 / stock.holding
+            book_cost = stock.book_cost
             name = stock.name
+            holding = stock.holding
             break
 
-    response["value"] = str(round(data.iloc[-1], 1))
+    response["value"] = str(round(data.iloc[-1] * holding / 100 - book_cost, 1))
     response["gain"] = (
         str(round((data.iloc[-1] - book_cost_per_share) * 100 / book_cost_per_share, 1))
         + "%"
     )
-    response["max"] = str(round(data.max(), 1))
-    response["min"] = str(round(data.min(), 1))
+    response["max"] = str(round(data.max() * holding / 100 - book_cost, 1))
+    response["min"] = str(round(data.min() * holding / 100 - book_cost, 1))
 
     if data.iloc[-1] < data.iloc[0]:
         line_color = COLOURS["negative_red"]

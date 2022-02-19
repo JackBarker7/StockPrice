@@ -29,7 +29,6 @@ FIELDS = [
     "Commission",
     "FX Charge",
     "Exchange",
-    
 ]
 # get correct path to files
 files = [
@@ -177,7 +176,7 @@ def load_portfolio(file: str = PORTFOLIO_FILE) -> List[Stock]:
         to_cache.columns = [stock.name for stock in rep]
         to_cache.to_csv(STOCK_CACHE_FILE, index_label="time")
     except Exception as e:
-        #for some reason this is usually a temporary problem that seems to sort itself out when code is run a few days later
+        # for some reason this is usually a temporary problem that seems to sort itself out when code is run a few days later
         print(f"Caching has failed. Error message: \n{e}")
 
     return rep
@@ -196,7 +195,7 @@ def get_values(
             (end + dt.timedelta(days=1)).strftime("%m/%d/%y"),
         )[["open", "close"]]
     except KeyError:
-        #some wierd quirk with the yahoo_fin module
+        # some wierd quirk with the yahoo_fin module
         index = pd.date_range(start, end, freq="1D")
         raw = pd.DataFrame(np.nan, columns=["open", "close"], index=index)
 
@@ -221,10 +220,10 @@ def merge_portfolio(portfolio: List[Stock]) -> pd.DataFrame:
     daily_average_dfs = []
     for stock in portfolio:
         df = stock.data.copy().fillna(method="ffill")
-        #get mean for each day
+        # get mean for each day
         df = df.groupby([df["time"].dt.date]).mean() * stock.holding
         df["book_cost"] = stock.book_cost * 100.0
-        #if stock does not have recorded value for this day, set book cost to 0
+        # if stock does not have recorded value for this day, set book cost to 0
         df.loc[np.isnan(df["value"]), "book_cost"] = 0
         daily_average_dfs.append(df)
 
@@ -269,7 +268,7 @@ def parse_date(date_string: str) -> dt.datetime:
 def add_new_stock_to_file(new_data: tuple):
     with open(PORTFOLIO_FILE, "r") as f:
         portfolio = json.load(f)
-    
+
     new_data = list(new_data)
     new_data[5:9] = [int(i) for i in new_data[5:9]]
     print(new_data)

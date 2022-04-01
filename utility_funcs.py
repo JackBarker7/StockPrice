@@ -29,17 +29,17 @@ FIELDS = [
     "Commission",
     "FX Charge",
     "Exchange",
-]
-# get correct path to files
+]  # JSON fields for each stock
+
 files = [
     "data/currency_cache.json",
     "data/config.json",
     "data/portfolio.json",
     "data/stock_cache.csv",
-]
+]  # relevant file names
 [CURRENCY_CACHE_FILE, CONFIG_FILE, PORTFOLIO_FILE, STOCK_CACHE_FILE] = [
     os.path.join(CURRENT_FOLDER, x) for x in files
-]
+]  # get corrent path to files
 
 with open(CURRENCY_CACHE_FILE, "r") as f:
     CURRENCY_DATA = json.load(f)
@@ -52,6 +52,9 @@ BASE_CURRENCY = config_data["BASE_CURRENCY"]
 
 @dataclass
 class Stock:
+    """Dataclass that holds all relevant information about a stock. 
+    After loading, the `data` dataframe is populated with the value of the stock over the required time period."""
+
     name: str
     ticker: str
     currency: str
@@ -185,6 +188,7 @@ def load_portfolio(file: str = PORTFOLIO_FILE) -> List[Stock]:
 def get_values(
     start: dt.datetime, end: dt.datetime, ticker: str, exchange: str = "LSE"
 ) -> pd.DataFrame:
+    """ Returns the values of a stock between a start and end date in a DataFrame"""
     times = config_data["EXCHANGE_TIMES"][exchange]  # open times of various exchanges
 
     # collect the raw data from Yahoo Finance, take only the open and close columns
@@ -217,7 +221,8 @@ def get_values(
 
 
 def merge_portfolio(portfolio: List[Stock]) -> pd.DataFrame:
-    daily_average_dfs = []
+    """ Merges all stocks in portfolio into one DataFrame"""
+    daily_average_dfs = [] # array of DataFrames, each holding average value of each stock for a period of days
     for stock in portfolio:
         df = stock.data.copy().fillna(method="ffill")
         # get mean for each day
@@ -227,6 +232,7 @@ def merge_portfolio(portfolio: List[Stock]) -> pd.DataFrame:
         df.loc[np.isnan(df["value"]), "book_cost"] = 0
         daily_average_dfs.append(df)
 
+    # combine dataframes, and add actual change and percentage change columns
     rep = reduce(lambda a, b: a.add(b, fill_value=0), daily_average_dfs)
     rep["actual_change"] = rep["value"] - rep["book_cost"]
     rep["percent_change"] = rep["actual_change"] * 100 / rep["book_cost"]
@@ -237,6 +243,7 @@ def merge_portfolio(portfolio: List[Stock]) -> pd.DataFrame:
 def convert_currency(
     value: float, date: dt.datetime = dt.date.today(), c_from: str = "USD"
 ) -> float:
+    """ Converts currency at `date` from `c_from` to global currency"""
     global CURRENCY_DATA
     date_str = date.strftime("%Y-%m-%d")
 

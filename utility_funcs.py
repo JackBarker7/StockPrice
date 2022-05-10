@@ -48,6 +48,7 @@ with open(CONFIG_FILE, "r") as f:
     config_data = json.load(f)
 
 BASE_CURRENCY = config_data["BASE_CURRENCY"]
+VERBOSE = config_data["VERBOSE"]
 
 
 @dataclass
@@ -60,10 +61,10 @@ class Stock:
     currency: str
     date_bought: dt.datetime
     holding: float
-    book_cost: float
+    book_cost: float # in GBP
     commission: float
     fx_charge: float
-    exchange: str
+    exchange: str # either LSE, NASDAQ or CRYPTO
     date_sold: dt.datetime = dt.date.today()
     data: pd.DataFrame = None
     gained: bool = False
@@ -72,7 +73,7 @@ class Stock:
         if self.data is None:
             # no data for this stock was present in cache, so fetch new data
 
-            print("getting values")
+            if VERBOSE: print("getting values")
             self.data = get_values(
                 parse_date(self.date_bought),
                 parse_date(self.date_sold),
@@ -93,7 +94,7 @@ class Stock:
             self.data.loc[(self.data.index[0], "value")] = (
                 self.book_cost * 100 / self.holding
             )  # equivalent to self.data.iloc[0]["value"], but prevents SettingWithCopyWarning
-            print(self.data)
+            if VERBOSE: print(self.data)
 
         else:
             # data was cached, but is not fully up to date
@@ -192,7 +193,9 @@ def get_values(
     times = config_data["EXCHANGE_TIMES"][exchange]  # open times of various exchanges
 
     # collect the raw data from Yahoo Finance, take only the open and close columns
+    if VERBOSE: print("Fetching data:")
     try:
+        if VERBOSE: print(ticker)
         raw = si.get_data(
             ticker,
             start.strftime("%m/%d/%y"),
@@ -202,6 +205,11 @@ def get_values(
         # some wierd quirk with the yahoo_fin module
         index = pd.date_range(start, end, freq="1D")
         raw = pd.DataFrame(np.nan, columns=["open", "close"], index=index)
+    except AssertionError as e:
+        print("Assertion error. Ticker likely does not exist")
+        print(e)
+        raise AssertionError
+
 
     # turn into data frame with one column (value) and forward fill any missing values
     rep = pd.concat([raw["open"], raw["close"]]).to_frame().fillna(method="ffill")
@@ -217,6 +225,10 @@ def get_values(
     rep: pd.DataFrame = rep.rename(index={rep.index[-1]: dt.datetime.now()})
     if rep.index[-1] < rep.index[-2]:
         rep.drop(rep.index[-1], inplace=True)
+
+    # crypto assets need their currency converted to pence
+    if exchange == "CRYPTO":
+        rep["value"] = rep["value"] * 100.0
     return rep.sort_index().assign(time=rep.index.values)
 
 

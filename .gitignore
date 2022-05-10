@@ -1,7 +1,7 @@
-StockPriceEnv
+env
 portfolio.json
 currency_cache.json
 stock_cache.csv
 __pycache__
-310env
 data
+!data/config.json
